@@ -6,6 +6,13 @@
   "author": "Unclaimed SOL",
   "type": "module",
   "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unclaimed-sol/spl-burn-close-sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/unclaimed-sol/spl-burn-close-sdk/issues"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

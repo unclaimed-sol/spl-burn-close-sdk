@@ -1,4 +1,4 @@
-# @unclaimedsol/spl-burn-close-sdk
+# Burn and Close Solana SPL Tokens SDK
 
 A lightweight Solana SDK to **burn SPL tokens and close token accounts** with a **fixed 5%** protocol fee.
 This library only **builds unsigned transactions** – you handle signing and sending them, whether in the browser (Wallet Adapter) or server (Keypair).
