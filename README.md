@@ -14,15 +14,26 @@ This library only **builds unsigned transactions** – you handle signing and se
 
 ---
 
+## 🧩 How It Works
+
+1. The SDK prepares TransactionInstructions for your on-chain burn+close program.
+2. Program burns tokens in each ATA, then closes it, sending rent back to the owner.
+3. A 5% fee is enforced on-chain and sent to the hardcoded recipient.
+4. The SDK never asks for private keys — you sign & send transactions yourself.
+
+---
+
 ## 📦 Installation
 
 ```bash
-npm i @unclaimedsol/spl-burn-close-sdk @solana/web3.js
+npm i @unclaimedsol/spl-burn-close-sdk
 ```
 
-We use peerDependencies to avoid version conflicts.
+We use @solana/web3.js in peerDependencies to avoid version conflicts. So, make sure you already have it installed.
 
 Requires Node 18+.
+
+---
 
 ## 🔑 Usage
 
@@ -109,13 +120,20 @@ for (const stx of signed) {
 }
 ```
 
-## 🧩 How It Works
+---
 
-1. The SDK prepares TransactionInstructions for your on-chain burn+close program.
-2. Program burns tokens in each ATA, then closes it, sending rent back to the owner.
-3. A 5% fee is enforced on-chain and sent to the hardcoded recipient.
-4. The SDK never asks for private keys — you sign & send transactions yourself.
+## 💻 Demo
 
-## 📜 License
+There is a nice tutorial guide with a demo repository that shows the usage of the SDK to burn and close all token accounts for the wallet. You can find it [here](https://cryptolover12.medium.com/how-to-close-and-burn-token-accounts-on-solana-simple-way-in-web3-js-2ede68f3fcd7).
+
+---
+
+## 📜 Disclaimer
+
+This SDK only **builds transactions** to burn tokens and close accounts. You are solely responsible for signing and sending them. We are not liable for any loss of funds.
+
+---
+
+## 📃 License
 
 MIT © [Unclaimed SOL](https://unclaimedsol.com)

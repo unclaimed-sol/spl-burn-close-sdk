@@ -46,6 +46,7 @@
     "sdk",
     "token-account",
     "close-account",
-    "burn"
+    "burn",
+    "close"
   ]
 }
