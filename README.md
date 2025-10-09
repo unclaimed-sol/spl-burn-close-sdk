@@ -124,7 +124,7 @@ for (const stx of signed) {
 
 ## 💻 Demo
 
-There is a nice tutorial guide with a demo repository that shows the usage of the SDK to burn and close all token accounts for the wallet. You can find it [here](https://cryptolover12.medium.com/how-to-close-and-burn-token-accounts-on-solana-simple-way-in-web3-js-2ede68f3fcd7).
+There is a nice tutorial guide with a demo repository that shows the usage of the SDK to burn and close all token accounts for the wallet. You can find it [here](https://www.npmjs.com/package/@unclaimedsol/spl-burn-close-sdk).
 
 ---
 
