@@ -19,9 +19,6 @@ export const TOKEN_PROGRAM_ID = new PublicKey(
   "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 );
 
-/** Fixed fee percentage enforced by the program (5%) */
-export const FIXED_FEE_PERCENTAGE = 5; // do not change
-
 export type Pair = { mint: PublicKey; ata: PublicKey };
 
 export type BuildOptions = {
@@ -62,7 +59,7 @@ export async function buildBurnAndCloseTransactions(
   if (!pairs.length) return [];
 
   const chunkSize = Math.max(1, options.chunkSize ?? 12);
-  const commitment = options.commitment ?? "confirmed";
+  const commitment = options.commitment ?? "processed";
   const feePayer = options.feePayer ?? user;
 
   // Split into chunks so we stay under CU / account limits
@@ -71,8 +68,8 @@ export async function buildBurnAndCloseTransactions(
     chunks.push(pairs.slice(i, i + chunkSize));
   }
 
-  // Instruction data: [selector=0, fee_pct=5]
-  const data = Buffer.from([0, FIXED_FEE_PERCENTAGE]);
+  // Instruction data: [selector=0]
+  const data = Buffer.from([0]);
 
   const txs: Transaction[] = [];
   for (const chunk of chunks) {
