@@ -42,19 +42,21 @@ export type BuildOptions = {
  * Build *unsigned* transactions that call the on-chain burn+close program.
  * You sign and send them yourself (frontend wallet or backend keypair).
  *
- * @param connection  Solana RPC connection
- * @param programId   Your deployed program ID
- * @param user        The user whose ATAs will be burned/closed
- * @param pairs       Array of { mint, ata } to process
- * @param options     Chunking / blockhash / payer tweaks
- * @returns           Array of *unsigned* Transaction objects
+ * @param connection      Solana RPC connection
+ * @param programId       Your deployed program ID
+ * @param user            The user whose ATAs will be burned/closed
+ * @param pairs           Array of { mint, ata } to process
+ * @param options         Chunking / blockhash / payer tweaks
+ * @param tokenProgramId  Support for multiple Token programs
+ * @returns               Array of *unsigned* Transaction objects
  */
 export async function buildBurnAndCloseTransactions(
   connection: Connection,
   programId: PublicKey,
   user: PublicKey,
   pairs: Pair[],
-  options: BuildOptions = {}
+  options: BuildOptions = {},
+  tokenProgramId = TOKEN_PROGRAM_ID
 ): Promise<Transaction[]> {
   if (!pairs.length) return [];
 
@@ -78,7 +80,7 @@ export async function buildBurnAndCloseTransactions(
       // the caller must actually sign the Transaction later.
       { pubkey: FEE_RECIPIENT,           isSigner: false, isWritable: true },
       { pubkey: user,                    isSigner: true,  isWritable: true },
-      { pubkey: TOKEN_PROGRAM_ID,        isSigner: false, isWritable: false },
+      { pubkey: tokenProgramId,        isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ];
 
