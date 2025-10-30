@@ -112,3 +112,51 @@ export async function buildBurnAndCloseTransactions(
 
   return txs;
 }
+
+/**
+ * Build a single **TransactionInstruction** that calls the on-chain
+ * burn+close program for a specific Token Program (either SPL Token or Token-2022).
+ *
+ * Unlike `buildBurnAndCloseTransactions`, this helper does **not**
+ * create or sign full transactions — it only constructs one
+ * instruction for a batch of (mint, ATA) pairs.
+ */
+export async function buildBurnAndCloseInstruction(
+  programId: PublicKey,
+  user: PublicKey,
+  pairs: Pair[],
+  tokenProgramId: PublicKey,
+): Promise<TransactionInstruction | null> {
+  if (!pairs.length) {
+    return null;
+  }
+
+  // instruction data selector: 0 = burn_and_close_token_accounts
+  const data = Buffer.from([0]);
+
+  // accounts order MUST match the on-chain program's expectation:
+  // [0] fee_payer_account (your fee recipient)
+  // [1] user_wallet_account (the signer)
+  // [2] token_program_account (SPL Token program or Token-2022 program)
+  // [3] system_program_account
+  // then repeating (mint, ata) pairs, both writable
+  const keys = [
+    { pubkey: FEE_RECIPIENT,              isSigner: false, isWritable: true },
+    { pubkey: user,                       isSigner: true,  isWritable: true },
+    { pubkey: tokenProgramId,             isSigner: false, isWritable: false },
+    { pubkey: SystemProgram.programId,    isSigner: false, isWritable: false },
+  ];
+
+  for (const { mint, ata } of pairs) {
+    keys.push(
+      { pubkey: mint, isSigner: false, isWritable: true },
+      { pubkey: ata,  isSigner: false, isWritable: true },
+    );
+  }
+
+  return new TransactionInstruction({
+    programId,
+    keys,
+    data,
+  });
+}
