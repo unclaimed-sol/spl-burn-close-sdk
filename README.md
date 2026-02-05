@@ -9,6 +9,7 @@ This library only **builds unsigned transactions** – you handle signing and se
 - 🧹 Close token accounts, reclaiming rent to the user.
 - 💸 Automatic 5% protocol fee (hardcoded in program).
 - ⚡ Automatic batching (default 12 ATAs per transaction).
+- 🪙 Supports SPL Token and Token-2022.
 - 🔐 Supports **frontend partial signing** and **backend full signing** workflows.
 - 🚀 No hidden config: single function to integrate.
 
@@ -29,7 +30,7 @@ This library only **builds unsigned transactions** – you handle signing and se
 npm i @unclaimedsol/spl-burn-close-sdk
 ```
 
-We use @solana/web3.js in peerDependencies to avoid version conflicts. So, make sure you already have it installed.
+We use @solana/web3.js in peerDependencies to avoid version conflicts, so make sure you already have it installed.
 
 Requires Node 18+.
 
@@ -40,7 +41,7 @@ Requires Node 18+.
 ### Signing with Keypair
 
 ```typescript
-import { Connection, Keypair } from "@solana/web3.js";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
   buildBurnAndCloseTransactions,
   PROGRAM_ID,
@@ -82,6 +83,7 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import {
   buildBurnAndCloseTransactions,
   PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
 } from "@unclaimedsol/spl-burn-close-sdk";
 
 const connection = new Connection("https://api.mainnet-beta.solana.com");
@@ -100,6 +102,16 @@ const txs = await buildBurnAndCloseTransactions(
   pairs
 );
 
+// For Token-2022 accounts, pass TOKEN_2022_PROGRAM_ID and consider using a smaller chunkSize:
+// const txs = await buildBurnAndCloseTransactions(
+//   connection,
+//   PROGRAM_ID,
+//   user,
+//   pairs,
+//   { chunkSize: 2 },
+//   TOKEN_2022_PROGRAM_ID
+// );
+
 // Sign
 const signed = wallet.signAllTransactions
   ? await wallet.signAllTransactions(txs)
@@ -107,7 +119,7 @@ const signed = wallet.signAllTransactions
 
 // Send
 for (const stx of signed) {
-  const sig = await connection.sendRawTransaction(tx.serialize());
+  const sig = await connection.sendRawTransaction(stx.serialize());
   let latestBlockhash = await connection.getLatestBlockhash(
     connection.commitment
   );
@@ -119,6 +131,13 @@ for (const stx of signed) {
   console.log("✅ Sent:", sig);
 }
 ```
+
+---
+
+## 🌐 Cluster support
+
+This SDK targets the Unclaimed SOL mainnet program (`PROGRAM_ID`) and fee recipient (`FEE_RECIPIENT`).
+Transactions will only succeed on a cluster where that program is deployed.
 
 ---
 

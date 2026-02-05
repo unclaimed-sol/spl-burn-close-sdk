@@ -19,6 +19,10 @@ export const TOKEN_PROGRAM_ID = new PublicKey(
   "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 );
 
+export const TOKEN_2022_PROGRAM_ID = new PublicKey(
+  "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+);
+
 export type Pair = { mint: PublicKey; ata: PublicKey };
 
 export type BuildOptions = {
@@ -33,7 +37,7 @@ export type BuildOptions = {
   feePayer?: PublicKey;
   /**
    * Provide your own recent blockhash (advanced). If omitted,
-   * we fetch a fresh one per transaction.
+   * we fetch a fresh one and reuse it for all built transactions.
    */
   recentBlockhash?: string;
 };
@@ -61,7 +65,7 @@ export async function buildBurnAndCloseTransactions(
   if (!pairs.length) return [];
 
   const chunkSize = Math.max(1, options.chunkSize ?? 12);
-  const commitment = options.commitment ?? "processed";
+  const commitment = options.commitment ?? "confirmed";
   const feePayer = options.feePayer ?? user;
 
   // Split into chunks so we stay under CU / account limits
@@ -71,23 +75,28 @@ export async function buildBurnAndCloseTransactions(
   }
 
   // Instruction data: [selector=0]
-  const data = Buffer.from([0]);
+  // Use Uint8Array (browser-safe) and cast for web3.js' Buffer typing.
+  const data = new Uint8Array([0]) as unknown as Buffer;
+
+  const recentBlockhash =
+    options.recentBlockhash ??
+    (await connection.getLatestBlockhash({ commitment })).blockhash;
 
   const txs: Transaction[] = [];
   for (const chunk of chunks) {
     const keys = [
       // NOTE: Mark the user as signer in the instruction meta;
       // the caller must actually sign the Transaction later.
-      { pubkey: FEE_RECIPIENT,           isSigner: false, isWritable: true },
-      { pubkey: user,                    isSigner: true,  isWritable: true },
-      { pubkey: tokenProgramId,        isSigner: false, isWritable: false },
+      { pubkey: FEE_RECIPIENT, isSigner: false, isWritable: true },
+      { pubkey: user, isSigner: true, isWritable: true },
+      { pubkey: tokenProgramId, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ];
 
     for (const { mint, ata } of chunk) {
       keys.push(
         { pubkey: mint, isSigner: false, isWritable: true },
-        { pubkey: ata,  isSigner: false, isWritable: true },
+        { pubkey: ata, isSigner: false, isWritable: true }
       );
     }
 
@@ -99,13 +108,7 @@ export async function buildBurnAndCloseTransactions(
 
     const tx = new Transaction().add(ix);
     tx.feePayer = feePayer;
-    // Use provided blockhash or fetch one
-    if (options.recentBlockhash) {
-      tx.recentBlockhash = options.recentBlockhash;
-    } else {
-      const { blockhash } = await connection.getLatestBlockhash({ commitment });
-      tx.recentBlockhash = blockhash;
-    }
+    tx.recentBlockhash = recentBlockhash;
 
     txs.push(tx);
   }
@@ -125,32 +128,32 @@ export async function buildBurnAndCloseInstruction(
   programId: PublicKey,
   user: PublicKey,
   pairs: Pair[],
-  tokenProgramId: PublicKey,
+  tokenProgramId: PublicKey
 ): Promise<TransactionInstruction | null> {
   if (!pairs.length) {
     return null;
   }
 
   // instruction data selector: 0 = burn_and_close_token_accounts
-  const data = Buffer.from([0]);
+  const data = new Uint8Array([0]) as unknown as Buffer;
 
   // accounts order MUST match the on-chain program's expectation:
-  // [0] fee_payer_account (your fee recipient)
+  // [0] fee_recipient_account (your fee recipient)
   // [1] user_wallet_account (the signer)
   // [2] token_program_account (SPL Token program or Token-2022 program)
   // [3] system_program_account
   // then repeating (mint, ata) pairs, both writable
   const keys = [
-    { pubkey: FEE_RECIPIENT,              isSigner: false, isWritable: true },
-    { pubkey: user,                       isSigner: true,  isWritable: true },
-    { pubkey: tokenProgramId,             isSigner: false, isWritable: false },
-    { pubkey: SystemProgram.programId,    isSigner: false, isWritable: false },
+    { pubkey: FEE_RECIPIENT, isSigner: false, isWritable: true },
+    { pubkey: user, isSigner: true, isWritable: true },
+    { pubkey: tokenProgramId, isSigner: false, isWritable: false },
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
   ];
 
   for (const { mint, ata } of pairs) {
     keys.push(
       { pubkey: mint, isSigner: false, isWritable: true },
-      { pubkey: ata,  isSigner: false, isWritable: true },
+      { pubkey: ata, isSigner: false, isWritable: true }
     );
   }
 
