@@ -1,6 +1,6 @@
 {
   "name": "@unclaimedsol/spl-burn-close-sdk",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "SDK to burn and close SPL token accounts via the Unclaimed SOL program with benchmarked rent cleanup fees.",
   "license": "MIT",
   "author": "Unclaimed SOL",
