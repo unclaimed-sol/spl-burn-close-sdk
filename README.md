@@ -1,13 +1,14 @@
 # Burn and Close Solana SPL Tokens SDK
 
-A lightweight Solana SDK to **burn SPL tokens and close token accounts** with a **fixed 5%** protocol fee.
+A lightweight Solana SDK to **burn SPL tokens and close token accounts** with the June 2026 Unclaimed SOL token cleanup fee policy.
 This library only **builds unsigned transactions** – you handle signing and sending them, whether in the browser (Wallet Adapter) or server (Keypair).
 
 ## ✨ Features
 
 - 🔥 Burn all tokens in provided ATAs.
 - 🧹 Close token accounts, reclaiming rent to the user.
-- 💸 Automatic 5% protocol fee (hardcoded in program).
+- 💸 On-chain fee recipient is enforced by the program.
+- 🧾 Standard token cleanup lets the user keep up to 0.002 SOL per closed account; normal-account fee is 39,280 lamports.
 - ⚡ Automatic batching (default 12 ATAs per transaction).
 - 🪙 Supports SPL Token and Token-2022.
 - 🔐 Supports **frontend partial signing** and **backend full signing** workflows.
@@ -19,7 +20,7 @@ This library only **builds unsigned transactions** – you handle signing and se
 
 1. The SDK prepares TransactionInstructions for your on-chain burn+close program.
 2. Program burns tokens in each ATA, then closes it, sending rent back to the owner.
-3. A 5% fee is enforced on-chain and sent to the hardcoded recipient.
+3. The program sends recovered rent above 2,000,000 lamports per successfully closed account to the hardcoded fee recipient.
 4. The SDK never asks for private keys — you sign & send transactions yourself.
 
 ---
