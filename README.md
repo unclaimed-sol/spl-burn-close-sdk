@@ -8,7 +8,7 @@ This library only **builds unsigned transactions** – you handle signing and se
 - 🔥 Burn all tokens in provided ATAs.
 - 🧹 Close token accounts, reclaiming rent to the user.
 - 💸 On-chain fee recipient is enforced by the program.
-- 🧾 Standard token cleanup lets the user keep up to 0.002 SOL per closed account; normal-account fee is 39,280 lamports.
+- 🧾 Hybrid cleanup fee: `max(floor(gross * 200 / 10000), gross - 2,000,000)` lamports per closed account. For 2,039,280 lamports recovered, the fee is 40,785 lamports.
 - ⚡ Automatic batching (default 12 ATAs per transaction).
 - 🪙 Supports SPL Token and Token-2022.
 - 🔐 Supports **frontend partial signing** and **backend full signing** workflows.
@@ -20,7 +20,7 @@ This library only **builds unsigned transactions** – you handle signing and se
 
 1. The SDK prepares TransactionInstructions for your on-chain burn+close program.
 2. Program burns tokens in each ATA, then closes it, sending rent back to the owner.
-3. The program sends recovered rent above 2,000,000 lamports per successfully closed account to the hardcoded fee recipient.
+3. The program sends the greater of 2% of recovered rent (rounded down) or the amount above 2,000,000 lamports to the hardcoded fee recipient, per successfully closed account.
 4. The SDK never asks for private keys — you sign & send transactions yourself.
 
 ---
@@ -33,7 +33,9 @@ npm i @unclaimedsol/spl-burn-close-sdk
 
 We use @solana/web3.js in peerDependencies to avoid version conflicts, so make sure you already have it installed.
 
-Requires Node 18+.
+Requires Node 18+. On Node 18, use a compatible locked dependency graph for web3.js;
+fresh dependency resolution can select an ESM-only `uuid` through `rpc-websockets`
+that breaks CommonJS loading. CI tests the repository’s locked dependency graph.
 
 ---
 
@@ -65,15 +67,15 @@ const txs = await buildBurnAndCloseTransactions(
 for (const tx of txs) {
   tx.partialSign(keypair);
   const sig = await connection.sendRawTransaction(tx.serialize());
-  let latestBlockhash = await connection.getLatestBlockhash(
-    connection.commitment
-  );
-  await connection.confirmTransaction({
+  const confirmation = await connection.confirmTransaction({
     signature: sig,
-    blockhash: latestBlockhash.blockhash,
-    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    blockhash: tx.recentBlockhash!,
+    lastValidBlockHeight: tx.lastValidBlockHeight!,
   });
-  console.log("✅ Sent:", sig);
+  if (confirmation.value.err) {
+    throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+  }
+  console.log("✅ Confirmed:", sig);
 }
 ```
 
@@ -109,7 +111,7 @@ const txs = await buildBurnAndCloseTransactions(
 //   PROGRAM_ID,
 //   user,
 //   pairs,
-//   { chunkSize: 2 },
+//   { chunkSize: 3 },
 //   TOKEN_2022_PROGRAM_ID
 // );
 
@@ -119,21 +121,46 @@ const signed = wallet.signAllTransactions
   : await Promise.all(txs.map((t) => wallet.signTransaction!(t)));
 
 // Send
-for (const stx of signed) {
+for (const [index, stx] of signed.entries()) {
+  // Wallets may reconstruct transactions and omit expiry metadata.
+  const tx = txs[index];
   const sig = await connection.sendRawTransaction(stx.serialize());
-  let latestBlockhash = await connection.getLatestBlockhash(
-    connection.commitment
-  );
-  await connection.confirmTransaction({
+  const confirmation = await connection.confirmTransaction({
     signature: sig,
-    blockhash: latestBlockhash.blockhash,
-    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    blockhash: tx.recentBlockhash!,
+    lastValidBlockHeight: tx.lastValidBlockHeight!,
   });
-  console.log("✅ Sent:", sig);
+  if (confirmation.value.err) {
+    throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+  }
+  console.log("✅ Confirmed:", sig);
 }
 ```
 
 ---
+
+## Batching and blockhash expiry
+
+`chunkSize` defaults to 12 and must be a finite positive integer. Invalid values and
+transactions that cannot serialize within the legacy 1,232-byte limit now throw during
+building. Size depends on unique accounts and signers, including a separate fee payer;
+there is no fixed pair cap. Instructions added afterwards (including compute budget or
+memo instructions) count against the same limit, so recheck size after adding them.
+
+The app uses batches of 10 classic token accounts or 3 Token-2022 accounts and also adds
+a compute-unit limit. These are production configuration values, not a guarantee for
+every workload; this release did not simulate their compute usage. The SDK adds no
+compute-budget instruction. Choose a batch size and compute budget for your workload.
+
+Fetched transactions carry `recentBlockhash` and its matching `lastValidBlockHeight`.
+If you supply `recentBlockhash`, supply its matching `lastValidBlockHeight` too when using
+the confirmation examples above. Without an explicit height it remains undefined; the
+SDK never fetches a height for a caller-supplied blockhash. A height supplied without a
+blockhash is ignored in favor of the fetched pair. Confirm using the original transaction
+metadata, even if the wallet returns a reconstructed signed transaction.
+
+Instruction data is a browser-safe `Uint8Array` typed as `Buffer` for web3.js compatibility;
+do not call Buffer-only methods on it.
 
 ## 🌐 Cluster support
 

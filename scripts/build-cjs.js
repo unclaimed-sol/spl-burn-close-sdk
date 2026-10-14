@@ -4,6 +4,7 @@ import { copyFileSync, mkdirSync, rmSync } from "fs";
 // producing `dist-cjs/index.js` in CommonJS format.
 mkdirSync("dist", { recursive: true });
 copyFileSync("dist-cjs/index.js", "dist/index.cjs");
+copyFileSync("dist/index.d.ts", "dist/index.d.cts");
 
 // Keep the workspace clean; `dist-cjs` is build-only and not published.
 rmSync("dist-cjs", { recursive: true, force: true });
