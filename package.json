@@ -1,7 +1,7 @@
 {
   "name": "@unclaimedsol/spl-burn-close-sdk",
   "version": "1.3.0",
-  "description": "SDK to burn and close SPL token accounts with a fee of max(floor(gross*200/10000), gross - 2,000,000) lamports (2,039,280 gross: 40,785 fee).",
+  "description": "Build unsigned Solana transactions to burn SPL tokens, close token accounts, and reclaim rent with the Unclaimed SOL program.",
   "license": "MIT",
   "author": "Unclaimed SOL",
   "type": "module",

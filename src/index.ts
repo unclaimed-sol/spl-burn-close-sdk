@@ -44,6 +44,22 @@ export type BuildOptions = {
   lastValidBlockHeight?: number;
 };
 
+/** Legacy transaction wire limit, including the signature-count prefix and signature slots. */
+const PACKET_DATA_SIZE = 1232;
+
+function packetSizeError(): Error {
+  return new Error(
+    "Burn and close: transaction could not be serialized within the 1,232-byte limit. " +
+    "Reduce chunkSize."
+  );
+}
+
+/** web3.js reports oversized messages as "Transaction too large" or a buffer overrun. */
+function isPacketSizeError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /Transaction too large|encoding overruns (?:Uint8Array|Buffer)/i.test(message);
+}
+
 /**
  * Build *unsigned* transactions that call the on-chain burn+close program.
  * You sign and send them yourself (frontend wallet or backend keypair).
@@ -116,15 +132,21 @@ export async function buildBurnAndCloseTransactions(
     tx.recentBlockhash = blockhash;
     tx.lastValidBlockHeight = lastValidBlockHeight;
 
+    let wireSize: number;
     try {
-      if (tx.serialize({ requireAllSignatures: false }).length > 1232) {
-        throw new Error("Transaction exceeds packet size.");
+      wireSize = tx.serialize({ requireAllSignatures: false }).length;
+    } catch (error) {
+      if (isPacketSizeError(error)) {
+        throw packetSizeError();
       }
-    } catch {
       throw new Error(
-        "Burn and close: transaction could not be serialized within the 1,232-byte limit. " +
-        "Reduce chunkSize and check the supplied transaction inputs."
+        "Burn and close: transaction could not be serialized. " +
+        "Check the supplied transaction inputs, including recentBlockhash and account keys.",
+        { cause: error }
       );
+    }
+    if (wireSize > PACKET_DATA_SIZE) {
+      throw packetSizeError();
     }
 
     txs.push(tx);

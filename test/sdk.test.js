@@ -57,6 +57,24 @@ test('empty inputs and invalid chunk sizes', async () => {
   }
 });
 
+test('non-size serialization failures keep their original cause', async () => {
+  const invalidMint = key(100);
+  invalidMint.toString = () => { throw new RangeError('Invalid account key range'); };
+  for (const [options, items, cause] of [
+    [{ recentBlockhash: '' }, pairs(1), /recentBlockhash required/],
+    [{}, [{ mint: 'not-a-key', ata: key(200) }], /./],
+    [{}, [{ mint: invalidMint, ata: key(200) }], /Invalid account key range/],
+  ]) {
+    await assert.rejects(build(items, options), (error) => {
+      assert.match(error.message, /^Burn and close: transaction could not be serialized\. Check the supplied transaction inputs/);
+      assert.doesNotMatch(error.message, /1,232-byte|chunkSize/);
+      assert.ok(error.cause instanceof Error);
+      assert.match(error.cause.message, cause);
+      return true;
+    });
+  }
+});
+
 test('blockhash and expiry stay paired across batches', async () => {
   let calls = 0;
   const connection = { async getLatestBlockhash(options) { calls++; assert.deepEqual(options, { commitment: 'finalized' }); return { blockhash, lastValidBlockHeight: 456 }; } };

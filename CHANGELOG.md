@@ -6,8 +6,9 @@
   an optional matching height for caller-supplied blockhashes.
 - Reject non-finite, non-positive, and fractional `chunkSize` values at build time,
   including on empty input. The default remains 12.
-- Validate unsigned serialization during building. Oversized transactions and serialization
-  failures now raise a clear SDK error at build time instead of failing later when sent.
+- Validate unsigned serialization during building. Oversized transactions raise a clear
+  size error at build time instead of failing later when sent; other serialization failures
+  (for example an invalid blockhash or account key) report the original error as `cause`.
   Choose a smaller chunk size; additional caller instructions still count against 1,232 bytes.
 - Fix CommonJS TypeScript resolution with separate import/require declaration exports.
 - Correct the documented hybrid fee and confirmation examples; describe compute-budget
