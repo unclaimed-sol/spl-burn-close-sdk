@@ -26,7 +26,7 @@ export const TOKEN_2022_PROGRAM_ID = new PublicKey(
 export type Pair = { mint: PublicKey; ata: PublicKey };
 
 export type BuildOptions = {
-  /** Max pairs per transaction (default: 12) */
+  /** Max pairs per transaction: a finite positive integer (default: 12). */
   chunkSize?: number;
   /** Use this commitment when fetching blockhash (default: "confirmed") */
   commitment?: Commitment;
@@ -40,7 +40,25 @@ export type BuildOptions = {
    * we fetch a fresh one and reuse it for all built transactions.
    */
   recentBlockhash?: string;
+  /** Expiry height matching recentBlockhash; ignored when the blockhash is fetched. */
+  lastValidBlockHeight?: number;
 };
+
+/** Legacy transaction wire limit, including the signature-count prefix and signature slots. */
+const PACKET_DATA_SIZE = 1232;
+
+function packetSizeError(): Error {
+  return new Error(
+    "Burn and close: transaction could not be serialized within the 1,232-byte limit. " +
+    "Reduce chunkSize."
+  );
+}
+
+/** web3.js reports oversized messages as "Transaction too large" or a buffer overrun. */
+function isPacketSizeError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /Transaction too large|encoding overruns (?:Uint8Array|Buffer)/i.test(message);
+}
 
 /**
  * Build *unsigned* transactions that call the on-chain burn+close program.
@@ -62,13 +80,15 @@ export async function buildBurnAndCloseTransactions(
   options: BuildOptions = {},
   tokenProgramId = TOKEN_PROGRAM_ID
 ): Promise<Transaction[]> {
+  const chunkSize = options.chunkSize ?? 12;
+  if (!Number.isFinite(chunkSize) || !Number.isInteger(chunkSize) || chunkSize <= 0) {
+    throw new Error("Burn and close: chunkSize must be a finite positive integer.");
+  }
   if (!pairs.length) return [];
-
-  const chunkSize = Math.max(1, options.chunkSize ?? 12);
   const commitment = options.commitment ?? "confirmed";
   const feePayer = options.feePayer ?? user;
 
-  // Split into chunks so we stay under CU / account limits
+  // Split into batches; callers must choose a suitable compute budget.
   const chunks: Pair[][] = [];
   for (let i = 0; i < pairs.length; i += chunkSize) {
     chunks.push(pairs.slice(i, i + chunkSize));
@@ -78,9 +98,10 @@ export async function buildBurnAndCloseTransactions(
   // Use Uint8Array (browser-safe) and cast for web3.js' Buffer typing.
   const data = new Uint8Array([0]) as unknown as Buffer;
 
-  const recentBlockhash =
-    options.recentBlockhash ??
-    (await connection.getLatestBlockhash({ commitment })).blockhash;
+  const { blockhash, lastValidBlockHeight } =
+    options.recentBlockhash !== undefined
+      ? { blockhash: options.recentBlockhash, lastValidBlockHeight: options.lastValidBlockHeight }
+      : await connection.getLatestBlockhash({ commitment });
 
   const txs: Transaction[] = [];
   for (const chunk of chunks) {
@@ -108,7 +129,25 @@ export async function buildBurnAndCloseTransactions(
 
     const tx = new Transaction().add(ix);
     tx.feePayer = feePayer;
-    tx.recentBlockhash = recentBlockhash;
+    tx.recentBlockhash = blockhash;
+    tx.lastValidBlockHeight = lastValidBlockHeight;
+
+    let wireSize: number;
+    try {
+      wireSize = tx.serialize({ requireAllSignatures: false }).length;
+    } catch (error) {
+      if (isPacketSizeError(error)) {
+        throw packetSizeError();
+      }
+      throw new Error(
+        "Burn and close: transaction could not be serialized. " +
+        "Check the supplied transaction inputs, including recentBlockhash and account keys.",
+        { cause: error }
+      );
+    }
+    if (wireSize > PACKET_DATA_SIZE) {
+      throw packetSizeError();
+    }
 
     txs.push(tx);
   }
@@ -123,6 +162,8 @@ export async function buildBurnAndCloseTransactions(
  * Unlike `buildBurnAndCloseTransactions`, this helper does **not**
  * create or sign full transactions — it only constructs one
  * instruction for a batch of (mint, ATA) pairs.
+ * Instruction data is a browser-safe Uint8Array, typed as Buffer for web3.js;
+ * do not rely on Buffer-only methods on the returned data.
  */
 export async function buildBurnAndCloseInstruction(
   programId: PublicKey,
