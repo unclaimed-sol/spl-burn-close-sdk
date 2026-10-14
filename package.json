@@ -35,8 +35,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && node ./scripts/build-cjs.js",
-    "prepublishOnly": "npm run build",
-    "test": "node --test test/*.test.js",
+    "prepack": "npm run build",
+    "test": "npm run build && node --test test/*.test.js",
     "test:package": "node scripts/test-package.js"
   },
   "peerDependencies": {
