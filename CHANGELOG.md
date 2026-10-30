@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.4.0
+
+- Add `buildCloseEmptyTokenAccountsInstruction` and
+  `buildCloseEmptyTokenAccountsTransactions` for opt-in execution-time empty-account
+  checks. They emit exact data `[2]` with the Rust program's existing token account
+  layout, support classic SPL Token and Token-2022, and never fall back to burning.
+- Reuse unsigned batching, `BuildOptions`, blockhash/expiry handling, fee payer
+  support and the 1,232-byte limit. The instruction helper makes no RPC calls.
+- Verify the ABI against Rust commit `1f2b10ae668c47de97627de69cdf656878ed9b0e`
+  and its deterministic fixture. Extend regression, browser-data and packed-package
+  coverage across CJS, ESM and TypeScript bundler resolution.
+- Document deployment prerequisites, skipped targets, funded/unsynchronized WSOL
+  exclusion, unchanged fees and the limits of preview and signature-based reporting.
+
+Existing burn-and-close APIs, selector `[0]`, defaults and behavior are preserved.
+Consumers must explicitly switch builders after the program upgrade is deployed;
+an SDK dependency update alone does not protect existing cleanup calls. This release
+does not add checked buffer approvals or guarantee exact preview proceeds.
+
 ## 1.3.0
 
 - Preserve the fetched blockhash's `lastValidBlockHeight` on built transactions and add
