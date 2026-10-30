@@ -1,0 +1,70 @@
+{
+  "accounts": [
+    {
+      "isSigner": false,
+      "isWritable": true,
+      "pubkey": "uncNCRycMtNPj2kXHfwiCgNrzCTnC9xU5FS8ZeWyn3M"
+    },
+    {
+      "isSigner": true,
+      "isWritable": true,
+      "pubkey": "4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi"
+    },
+    {
+      "isSigner": false,
+      "isWritable": false,
+      "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    },
+    {
+      "isSigner": false,
+      "isWritable": false,
+      "pubkey": "11111111111111111111111111111111"
+    },
+    {
+      "isSigner": false,
+      "isWritable": true,
+      "pubkey": "8qbHbw2BbbTHBW1sbeqakYXVKRQM8Ne7pLK7m6CVfeR"
+    },
+    {
+      "isSigner": false,
+      "isWritable": true,
+      "pubkey": "CktRuQ2mttgRGkXJtyksdKHjUdc2C4TgDzyB98oEzy8"
+    },
+    {
+      "isSigner": false,
+      "isWritable": true,
+      "pubkey": "GgBaCs3NCBuZN12kCJgAW63ydqohFkHEdfdEXBPzLHq"
+    },
+    {
+      "isSigner": false,
+      "isWritable": true,
+      "pubkey": "LbUiWL3xVV8hTFYBVdbTNrpDo41NKS6o3LHHuDzjfcY"
+    }
+  ],
+  "data": [
+    2
+  ],
+  "dataBase64": "Ag==",
+  "dataHex": "02",
+  "feeExamples": [
+    {
+      "feeLamports": 40785,
+      "grossLamports": 2039280
+    },
+    {
+      "feeLamports": 157600,
+      "grossLamports": 2157600
+    },
+    {
+      "feeLamports": 1000000,
+      "grossLamports": 3000000
+    }
+  ],
+  "instruction": "close_empty_token_accounts",
+  "legacyMessage": {
+    "feePayer": "4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi",
+    "hex": "01000309010101010101010101010101010101010101010101010101010101010101010102020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303040404040404040404040404040404040404040404040404040404040404040405050505050505050505050505050505050505050505050505050505050505050d85c5ef1fc01b6f9ee33d9153b0213711d2c98e92b1ff9cee01dd04c1cbb20c000000000000000000000000000000000000000000000000000000000000000006ddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a90702a6ff7e92c6ae0e7e0af257bf77c0331a541db666ebfe77d65f586d3e602a090909090909090909090909090909090909090909090909090909090909090901080805000706010203040102",
+    "recentBlockhash": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN"
+  },
+  "programId": "UNCaXzXkR3vp8mbCJyxWUvwuRk5uHgzrwe6jcWPfiUR"
+}

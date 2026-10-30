@@ -47,9 +47,9 @@ export type BuildOptions = {
 /** Legacy transaction wire limit, including the signature-count prefix and signature slots. */
 const PACKET_DATA_SIZE = 1232;
 
-function packetSizeError(): Error {
+function packetSizeError(operation: string): Error {
   return new Error(
-    "Burn and close: transaction could not be serialized within the 1,232-byte limit. " +
+    `${operation}: transaction could not be serialized within the 1,232-byte limit. ` +
     "Reduce chunkSize."
   );
 }
@@ -80,9 +80,39 @@ export async function buildBurnAndCloseTransactions(
   options: BuildOptions = {},
   tokenProgramId = TOKEN_PROGRAM_ID
 ): Promise<Transaction[]> {
+  return buildTokenAccountTransactions(connection, programId, user, pairs, options, tokenProgramId, 0);
+}
+
+/**
+ * Build unsigned transactions requesting execution-time empty-account checks.
+ * Requires the upgraded program's selector 2. It never burns or falls back to
+ * burn-and-close. Ineligible targets can be skipped, including funded WSOL.
+ * Only a blockhash is fetched; the program enforces account eligibility.
+ */
+export async function buildCloseEmptyTokenAccountsTransactions(
+  connection: Connection,
+  programId: PublicKey,
+  user: PublicKey,
+  pairs: Pair[],
+  options: BuildOptions = {},
+  tokenProgramId = TOKEN_PROGRAM_ID
+): Promise<Transaction[]> {
+  return buildTokenAccountTransactions(connection, programId, user, pairs, options, tokenProgramId, 2);
+}
+
+async function buildTokenAccountTransactions(
+  connection: Connection,
+  programId: PublicKey,
+  user: PublicKey,
+  pairs: Pair[],
+  options: BuildOptions,
+  tokenProgramId: PublicKey,
+  selector: 0 | 2
+): Promise<Transaction[]> {
+  const operation = selector === 0 ? "Burn and close" : "Close empty token accounts";
   const chunkSize = options.chunkSize ?? 12;
   if (!Number.isFinite(chunkSize) || !Number.isInteger(chunkSize) || chunkSize <= 0) {
-    throw new Error("Burn and close: chunkSize must be a finite positive integer.");
+    throw new Error(`${operation}: chunkSize must be a finite positive integer.`);
   }
   if (!pairs.length) return [];
   const commitment = options.commitment ?? "confirmed";
@@ -94,9 +124,8 @@ export async function buildBurnAndCloseTransactions(
     chunks.push(pairs.slice(i, i + chunkSize));
   }
 
-  // Instruction data: [selector=0]
   // Use Uint8Array (browser-safe) and cast for web3.js' Buffer typing.
-  const data = new Uint8Array([0]) as unknown as Buffer;
+  const data = new Uint8Array([selector]) as unknown as Buffer;
 
   const { blockhash, lastValidBlockHeight } =
     options.recentBlockhash !== undefined
@@ -105,27 +134,7 @@ export async function buildBurnAndCloseTransactions(
 
   const txs: Transaction[] = [];
   for (const chunk of chunks) {
-    const keys = [
-      // NOTE: Mark the user as signer in the instruction meta;
-      // the caller must actually sign the Transaction later.
-      { pubkey: FEE_RECIPIENT, isSigner: false, isWritable: true },
-      { pubkey: user, isSigner: true, isWritable: true },
-      { pubkey: tokenProgramId, isSigner: false, isWritable: false },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    ];
-
-    for (const { mint, ata } of chunk) {
-      keys.push(
-        { pubkey: mint, isSigner: false, isWritable: true },
-        { pubkey: ata, isSigner: false, isWritable: true }
-      );
-    }
-
-    const ix = new TransactionInstruction({
-      programId,
-      keys,
-      data,
-    });
+    const ix = tokenAccountInstruction(programId, user, chunk, tokenProgramId, data);
 
     const tx = new Transaction().add(ix);
     tx.feePayer = feePayer;
@@ -137,16 +146,16 @@ export async function buildBurnAndCloseTransactions(
       wireSize = tx.serialize({ requireAllSignatures: false }).length;
     } catch (error) {
       if (isPacketSizeError(error)) {
-        throw packetSizeError();
+        throw packetSizeError(operation);
       }
       throw new Error(
-        "Burn and close: transaction could not be serialized. " +
+        `${operation}: transaction could not be serialized. ` +
         "Check the supplied transaction inputs, including recentBlockhash and account keys.",
         { cause: error }
       );
     }
     if (wireSize > PACKET_DATA_SIZE) {
-      throw packetSizeError();
+      throw packetSizeError(operation);
     }
 
     txs.push(tx);
@@ -175,9 +184,36 @@ export async function buildBurnAndCloseInstruction(
     return null;
   }
 
-  // instruction data selector: 0 = burn_and_close_token_accounts
-  const data = new Uint8Array([0]) as unknown as Buffer;
+  return tokenAccountInstruction(programId, user, pairs, tokenProgramId, new Uint8Array([0]) as unknown as Buffer);
+}
 
+/**
+ * Build one close-empty instruction for SPL Token or Token-2022, without RPC.
+ * Returns null for empty input. Requires deployed selector 2 support; eligibility
+ * is checked by the program at execution, and ineligible targets may be skipped.
+ * This path never burns, including when tokens arrive after a preview.
+ * Data is a browser-safe Uint8Array typed as Buffer; avoid Buffer-only methods.
+ */
+export async function buildCloseEmptyTokenAccountsInstruction(
+  programId: PublicKey,
+  user: PublicKey,
+  pairs: Pair[],
+  tokenProgramId: PublicKey
+): Promise<TransactionInstruction | null> {
+  if (!pairs.length) {
+    return null;
+  }
+
+  return tokenAccountInstruction(programId, user, pairs, tokenProgramId, new Uint8Array([2]) as unknown as Buffer);
+}
+
+function tokenAccountInstruction(
+  programId: PublicKey,
+  user: PublicKey,
+  pairs: Pair[],
+  tokenProgramId: PublicKey,
+  data: Buffer
+): TransactionInstruction {
   // accounts order MUST match the on-chain program's expectation:
   // [0] fee_recipient_account (your fee recipient)
   // [1] user_wallet_account (the signer)
